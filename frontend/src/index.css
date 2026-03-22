@@ -12,8 +12,8 @@
   --text-light:  #a07080;
   --heading:     #3d1f2d;
 
-  --font-serif:  'Cormorant Garamond', Georgia, serif;
-  --font-sans:   'DM Sans', system-ui, sans-serif;
+  --font-serif:  'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-sans:   'Plus Jakarta Sans', system-ui, sans-serif;
 
   font-family: var(--font-sans);
   color: var(--text);
