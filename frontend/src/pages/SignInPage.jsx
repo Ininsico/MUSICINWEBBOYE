@@ -1,8 +1,11 @@
-import { SignIn } from '@clerk/clerk-react'
-import { Link } from 'react-router-dom'
+import { SignIn, useUser } from '@clerk/clerk-react'
+import { Link, Navigate } from 'react-router-dom'
 import heroImg from '../assets/hero.png'
 
 export default function SignInPage() {
+  const { isLoaded, isSignedIn } = useUser()
+
+  if (isLoaded && isSignedIn) return <Navigate to="/dashboard" replace />
   return (
     <div className="relative w-full h-screen overflow-hidden">
       <div

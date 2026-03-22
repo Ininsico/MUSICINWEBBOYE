@@ -1,12 +1,15 @@
-import { Link } from 'react-router-dom'
+import { useUser } from '@clerk/clerk-react'
+import { Link, Navigate } from 'react-router-dom'
 import heroImg from '../assets/hero.png'
 import logoImg from '../assets/logo.png'
 import Navbar from '../components/Navbar'
 import FloatingNotes from '../components/FloatingNotes'
 
 export default function Home() {
+  const { isSignedIn, isLoaded } = useUser()
+  if (isLoaded && isSignedIn) return <Navigate to="/dashboard" replace />
   return (
-    <div className="relative w-full h-screen overflow-hidden flex flex-col" style={{ background: 'var(--cream)' }}>
+    <div className="relative w-full h-screen overflow-hidden flex flex-col transition-colors duration-400" style={{ background: 'var(--bg)' }}>
 
       <FloatingNotes />
 
@@ -52,11 +55,11 @@ export default function Home() {
             >
               Make music
               <br />
-              fall in love
+              fall in love.
             </h1>
 
             <p
-              className="animate-fade-up delay-200 text-xl font-semibold leading-relaxed max-w-xl mb-12"
+              className="animate-fade-up delay-200 text-xl font-bold leading-relaxed max-w-xl mb-12"
               style={{ color: 'rgba(255,255,255,0.95)', textShadow: '0 1px 10px rgba(0,0,0,0.25)' }}
             >
               Mi Amor brings handcrafted musical instruments to life in your browser.
@@ -71,7 +74,7 @@ export default function Home() {
                   hover:scale-105 hover:shadow-2xl no-underline"
                 style={{
                   background: '#fff',
-                  color: 'var(--rose)',
+                  color: 'var(--accent-dark)',
                   fontSize: '1rem',
                   boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
                 }}
@@ -83,7 +86,7 @@ export default function Home() {
               <Link
                 to="/about"
                 id="hero-cta-secondary"
-                className="flex items-center gap-2 px-10 py-4 rounded-full font-bold transition-all duration-300
+                className="flex items-center gap-2 px-10 py-4 rounded-full font-black transition-all duration-300
                   hover:scale-105 no-underline border-2"
                 style={{
                   color: '#fff',

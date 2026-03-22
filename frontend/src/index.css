@@ -1,32 +1,60 @@
 @import "tailwindcss";
 
 :root {
-  --cream:       #fdf6f0;
-  --cream-dark:  #f5e9df;
-  --pink-light:  #f9d5e5;
-  --pink:        #f0a7c0;
-  --pink-dark:   #d97fa6;
-  --rose:        #c4587a;
-  --text:        #6b4555;
-  --text-light:  #a07080;
-  --heading:     #3d1f2d;
+  --bg:           #fdf6f0;
+  --bg-secondary: #f5e9df;
+  --text:         #3d1f2d;
+  --text-light:   #a07080;
+  --card:         rgba(255, 255, 255, 0.7);
+  --border:       rgba(249, 213, 229, 0.5);
+  --accent:       #f0a7c0;
+  --accent-dark:  #c4587a;
+  --nav-bg:       rgba(253, 246, 240, 0.8);
+  
+  --pink-light:   #f9d5e5;
+  --pink:         #f0a7c0;
+  --pink-dark:    #d97fa6;
+  --rose:         #c4587a;
 
-  --font-serif:  'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-sans:   'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-serif:   'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-sans:    'Plus Jakarta Sans', system-ui, sans-serif;
 
   font-family: var(--font-sans);
   font-weight: 600;
   font-style: normal;
   color: var(--text);
-  background: var(--cream);
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.dark {
+  --bg:           #0a0508;
+  --bg-secondary: #1a1114;
+  --text:         #fff1f5;
+  --text-light:   #d99eb0;
+  --card:         rgba(255, 255, 255, 0.03);
+  --border:       rgba(255, 255, 255, 0.05);
+  --accent:       #f96598;
+  --accent-dark:  #dc3273;
+  --nav-bg:       rgba(10, 5, 8, 0.8);
+  
+  --pink-light:   #4a2a35;
+  --pink:         #dc3273;
+  --pink-dark:    #c4587a;
+  --rose:         #f96598;
 }
 
 em, i { font-style: normal; font-weight: inherit; }
 
 *, *::before, *::after { box-sizing: border-box; }
-body { margin: 0; }
+body { 
+  margin: 0; 
+  background-color: var(--bg); 
+  color: var(--text);
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
 #root { min-height: 100svh; display: flex; flex-direction: column; }
 
 @keyframes float {
@@ -75,3 +103,18 @@ body { margin: 0; }
 .float-b { animation: floatB 6.5s ease-in-out infinite; }
 .float-c { animation: float  7.2s ease-in-out 1s infinite; }
 .float-d { animation: floatB 4.8s ease-in-out 0.5s infinite; }
+
+/* Custom scrollbar for dark mode dashboard */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}

@@ -12,8 +12,8 @@ const INSTRUMENTS = [
 export default function Instruments() {
   return (
     <div
-      className="relative overflow-x-hidden flex flex-col min-h-screen"
-      style={{ background: 'var(--cream)' }}
+      className="relative overflow-x-hidden flex flex-col min-h-screen transition-colors duration-400"
+      style={{ background: 'var(--bg)', color: 'var(--text)' }}
     >
       <FloatingNotes />
 
@@ -34,12 +34,12 @@ export default function Instruments() {
         <div className="text-center mb-16">
           <h1
             className="animate-fade-up text-5xl lg:text-6xl font-black mb-4"
-            style={{ fontFamily: 'var(--font-serif)', color: 'var(--heading)' }}
+            style={{ fontFamily: 'var(--font-serif)', color: 'var(--text)' }}
           >
             Choose your instrument
           </h1>
           <p
-            className="animate-fade-up delay-100 text-base font-semibold max-w-md mx-auto"
+            className="animate-fade-up delay-100 text-base font-black max-w-md mx-auto"
             style={{ color: 'var(--text-light)' }}
           >
             Each instrument is playable entirely from your keyboard — no downloads, no plugins.
@@ -58,10 +58,10 @@ export default function Instruments() {
         </div>
       </main>
 
-      <footer className="py-8 px-8 text-center border-t" style={{ borderColor: 'var(--cream-dark)' }}>
-        <p className="text-sm font-semibold" style={{ color: 'var(--text-light)' }}>
+      <footer className="py-8 px-8 text-center border-t transition-colors" style={{ borderColor: 'var(--border)' }}>
+        <p className="text-sm font-black" style={{ color: 'var(--text-light)' }}>
           Made with ♡ &nbsp;·&nbsp;
-          <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 900, color: 'var(--rose)' }}>
+          <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 900, color: 'var(--accent-dark)' }}>
             MiAmor
           </span>
           &nbsp;·&nbsp; {new Date().getFullYear()}
