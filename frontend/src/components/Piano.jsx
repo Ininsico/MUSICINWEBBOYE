@@ -1,215 +1,276 @@
-import { useEffect, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react'
+import { X, Speaker } from 'lucide-react'
 
-const KEYS = [
-  // LOW OCTAVE (Z-/ mapping)
-  { note: 'C3',  sargam: 'SA',  key: 'Z', type: 'white', freq: 130.81 },
-  { note: 'C#3', sargam: 're',  key: 'S', type: 'black', freq: 138.59 },
-  { note: 'D3',  sargam: 'RE',  key: 'X', type: 'white', freq: 146.83 },
-  { note: 'D#3', sargam: 'ga',  key: 'D', type: 'black', freq: 155.56 },
-  { note: 'E3',  sargam: 'GA',  key: 'C', type: 'white', freq: 164.81 },
-  { note: 'F3',  sargam: 'MA',  key: 'V', type: 'white', freq: 174.61 },
-  { note: 'F#3', sargam: 'ma',  key: 'G', type: 'black', freq: 185.00 },
-  { note: 'G3',  sargam: 'PA',  key: 'B', type: 'white', freq: 196.00 },
-  { note: 'G#3', sargam: 'dha', key: 'H', type: 'black', freq: 207.65 },
-  { note: 'A3',  sargam: 'DHA', key: 'N', type: 'white', freq: 220.00 },
-  { note: 'A#3', sargam: 'ni',  key: 'J', type: 'black', freq: 233.08 },
-  { note: 'B3',  sargam: 'NI',  key: 'M', type: 'white', freq: 246.94 },
+// FULL 88-KEY GENERATOR (A0 to C8)
+const generateKeys = () => {
+  const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+  const keys = []
+  keys.push({ note: 'A0', type: 'white', freq: 27.50 })
+  keys.push({ note: 'A#0', type: 'black', freq: 29.14 })
+  keys.push({ note: 'B0', type: 'white', freq: 30.87 })
+  for (let octave = 1; octave <= 7; octave++) {
+    for (const name of noteNames) {
+      if (keys.length >= 88) break
+      const isBlack = name.includes('#')
+      const freq = 440 * Math.pow(2, (keys.length - 48) / 12)
+      keys.push({ note: `${name}${octave}`, type: isBlack ? 'black' : 'white', freq })
+    }
+  }
+  if (keys.length < 88) keys.push({ note: 'C8', type: 'white', freq: 4186.01 })
+  return keys
+}
 
-  // MID OCTAVE (A-' mapping - Standardized)
-  { note: 'C4',  sargam: 'SA',  key: 'A', type: 'white', freq: 261.63 },
-  { note: 'C#4', sargam: 're',  key: 'W', type: 'black', freq: 277.18 },
-  { note: 'D4',  sargam: 'RE',  key: 'S', type: 'white', freq: 293.66 },
-  { note: 'D#4', sargam: 'ga',  key: 'E', type: 'black', freq: 311.13 },
-  { note: 'E4',  sargam: 'GA',  key: 'D', type: 'white', freq: 329.63 },
-  { note: 'F4',  sargam: 'MA',  key: 'F', type: 'white', freq: 349.23 },
-  { note: 'F#4', sargam: 'ma',  key: 'T', type: 'black', freq: 369.99 },
-  { note: 'G4',  sargam: 'PA',  key: 'G', type: 'white', freq: 392.00 },
-  { note: 'G#4', sargam: 'dha', key: 'Y', type: 'black', freq: 415.30 },
-  { note: 'A4',  sargam: 'DHA', key: 'H', type: 'white', freq: 440.00 },
-  { note: 'A#4', sargam: 'ni',  key: 'U', type: 'black', freq: 466.16 },
-  { note: 'B4',  sargam: 'NI',  key: 'J', type: 'white', freq: 493.88 },
+const ALL_88_KEYS = generateKeys()
+const VIRTUAL_MAP = "1234567890QWERTYUIOPASDFGHJKLZXCVBNM".split("");
 
-  // HIGH OCTAVE (Q-] mapping)
-  { note: 'C5',  sargam: 'SA',  key: 'K', type: 'white', freq: 523.25 },
-  { note: 'C#5', sargam: 're',  key: 'O', type: 'black', freq: 554.37 },
-  { note: 'D5',  sargam: 'RE',  key: 'L', type: 'white', freq: 587.33 },
-  { note: 'D#5', sargam: 'ga',  key: 'P', type: 'black', freq: 622.25 },
-  { note: 'E5',  sargam: 'GA',  key: ';', type: 'white', freq: 659.25 },
-  { note: 'F5',  sargam: 'MA',  key: '[', type: 'white', freq: 698.46 },
-  { note: 'F#5', sargam: 'ma',  key: '=', type: 'black', freq: 739.99 },
-  { note: 'G5',  sargam: 'PA',  key: ']', type: 'white', freq: 783.99 },
-]
-
-export default function Piano({ volume = 0.6, reverb = 0.4, isFullScreen = false, onExitFullScreen }) {
+const Piano = forwardRef(({ 
+    volume = 1.0, 
+    reverb = 0.8, 
+    isFullScreen = false, 
+    onExitFullScreen, 
+    highlightedKey = null,
+    isBeating = false,
+}, ref) => {
   const [activeKeys, setActiveKeys] = useState(new Set())
+  const [isAudioReady, setIsAudioReady] = useState(false)
   const audioCtxRef = useRef(null)
   const masterGainRef = useRef(null)
-  const compressorRef = useRef(null)
   const oscillatorsRef = useRef({}) 
   const isSustainingRef = useRef(false)
+  const beatIntervalRef = useRef(null)
 
-  const initAudio = () => {
+  const initAudio = async () => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
       masterGainRef.current = audioCtxRef.current.createGain()
-      masterGainRef.current.gain.setValueAtTime(volume, audioCtxRef.current.currentTime)
-      compressorRef.current = audioCtxRef.current.createDynamicsCompressor()
-      masterGainRef.current.connect(compressorRef.current)
-      compressorRef.current.connect(audioCtxRef.current.destination)
+      masterGainRef.current.gain.setValueAtTime(0.5, audioCtxRef.current.currentTime)
+      const comp = audioCtxRef.current.createDynamicsCompressor()
+      comp.threshold.setValueAtTime(-10, audioCtxRef.current.currentTime)
+      masterGainRef.current.connect(comp)
+      comp.connect(audioCtxRef.current.destination)
     }
     if (audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume()
+        await audioCtxRef.current.resume()
     }
+    setIsAudioReady(true)
+    return true;
   }
 
-  const startNote = (key, freq) => {
-    initAudio()
-    const now = audioCtxRef.current.currentTime
-    if (oscillatorsRef.current[key]) stopNote(key, true)
+  const getNoteID = (noteName) => noteName.replace('#', 's');
 
-    const osc1 = audioCtxRef.current.createOscillator()
-    const osc2 = audioCtxRef.current.createOscillator()
-    const subOsc = audioCtxRef.current.createOscillator()
+  const startNote = (noteName, volumeOverride = 0.3) => {
+    if (!isAudioReady) return;
+    const keyObj = ALL_88_KEYS.find(k => k.note === noteName);
+    if (!keyObj) return;
+    const id = getNoteID(noteName);
+    const now = audioCtxRef.current.currentTime
+    
+    if (oscillatorsRef.current[id]) {
+        oscillatorsRef.current[id].gain.gain.cancelScheduledValues(now);
+        oscillatorsRef.current[id].oscs.forEach(o => { try { o.stop(); o.disconnect(); } catch(e) {} });
+        delete oscillatorsRef.current[id];
+    }
+
+    const osc = audioCtxRef.current.createOscillator() 
+    const sub = audioCtxRef.current.createOscillator()
     const gainNode = audioCtxRef.current.createGain()
     const filter = audioCtxRef.current.createBiquadFilter()
 
-    osc1.type = 'triangle'
-    osc2.type = 'sawtooth'
-    subOsc.type = 'sine'
-
-    osc1.frequency.setValueAtTime(freq, now)
-    osc2.frequency.setValueAtTime(freq * 1.003, now)
-    subOsc.frequency.setValueAtTime(freq * 0.5, now)
+    osc.type = 'triangle'
+    sub.type = 'sine'
+    osc.frequency.setValueAtTime(keyObj.freq, now)
+    sub.frequency.setValueAtTime(keyObj.freq / 2, now)
 
     filter.type = 'lowpass'
-    filter.frequency.setValueAtTime(2200, now)
+    filter.frequency.setValueAtTime(400, now)
 
     gainNode.gain.setValueAtTime(0, now)
-    gainNode.gain.linearRampToValueAtTime(0.4, now + 0.03)
+    gainNode.gain.linearRampToValueAtTime(volumeOverride, now + 0.05) 
 
-    osc1.connect(gainNode)
-    osc2.connect(gainNode)
-    subOsc.connect(gainNode)
-    gainNode.connect(filter)
-    filter.connect(masterGainRef.current)
+    osc.connect(filter)
+    sub.connect(filter)
+    filter.connect(gainNode)
+    gainNode.connect(masterGainRef.current)
+    osc.start(now)
+    sub.start(now)
 
-    osc1.start(now)
-    osc2.start(now)
-    subOsc.start(now)
-
-    oscillatorsRef.current[key] = { oscs: [osc1, osc2, subOsc], gain: gainNode, released: false }
-    setActiveKeys(prev => new Set([...prev, key]))
+    oscillatorsRef.current[id] = { oscs: [osc, sub], gain: gainNode, releasedByPlayer: false, startTime: now }
+    setActiveKeys(prev => new Set([...prev, id]))
   }
 
-  const stopNote = (key, immediate = false) => {
-    const note = oscillatorsRef.current[key]
+  const stopNote = (noteName, immediate = false) => {
+    const id = getNoteID(noteName);
+    const note = oscillatorsRef.current[id]
     if (!note) return
-    if (isSustainingRef.current && !immediate) {
-      note.released = true
-      return
+    
+    // VISUAL POPUP - Always immediate
+    setActiveKeys(prev => {
+      const next = new Set(prev); 
+      next.delete(id); 
+      return next;
+    });
+
+    if (isSustainingRef.current && !immediate) { 
+        note.releasedByPlayer = true; 
+        return; 
     }
 
     const now = audioCtxRef.current.currentTime
-    const releaseTime = immediate ? 0.05 : 0.8 + (reverb * 5)
-    
+    const releaseTime = immediate ? 0.03 : 0.6
     note.gain.gain.cancelScheduledValues(now)
-    note.gain.gain.setTargetAtTime(0, now, releaseTime / 4)
+    note.gain.gain.setTargetAtTime(0, now, releaseTime / 5)
+    
+    setTimeout(() => {
+        if (oscillatorsRef.current[id]) {
+            note.oscs.forEach(o => { try { o.stop(); o.disconnect(); } catch(e) {} })
+            delete oscillatorsRef.current[id]
+        }
+    }, releaseTime * 1000)
+  }
 
-    note.oscs.forEach(osc => {
-      try { osc.stop(now + releaseTime) } catch(e) {}
-    })
+  const killAllNotes = () => {
+    const now = audioCtxRef.current.currentTime;
+    Object.keys(oscillatorsRef.current).forEach(id => {
+        const note = oscillatorsRef.current[id];
+        note?.gain.gain.cancelScheduledValues(now);
+        note?.oscs.forEach(o => { try { o.stop(); o.disconnect(); } catch(e) {} });
+        delete oscillatorsRef.current[id];
+    });
+    setActiveKeys(new Set());
+  }
 
-    delete oscillatorsRef.current[key]
-    setActiveKeys(prev => {
-      const next = new Set(prev)
-      next.delete(key)
-      return next
-    })
+  useEffect(() => {
+    if (isBeating && isAudioReady) {
+        let step = 0;
+        beatIntervalRef.current = setInterval(() => {
+            if (!audioCtxRef.current) return;
+            const now = audioCtxRef.current.currentTime;
+            const osc = audioCtxRef.current.createOscillator();
+            const gain = audioCtxRef.current.createGain();
+            osc.frequency.setValueAtTime(step === 0 ? 55 : 40, now);
+            gain.gain.setValueAtTime(0.08, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            osc.connect(gain);
+            gain.connect(masterGainRef.current);
+            osc.start(now);
+            osc.stop(now + 0.2);
+            step = (step + 1) % 4;
+        }, 500);
+    } else {
+        if (beatIntervalRef.current) clearInterval(beatIntervalRef.current);
+    }
+    return () => { if (beatIntervalRef.current) clearInterval(beatIntervalRef.current); };
+  }, [isBeating, isAudioReady]);
+
+  useImperativeHandle(ref, () => ({
+    playNote: (noteName, volume = 0.25) => { startNote(noteName, volume); setTimeout(() => stopNote(noteName, true), 800); },
+    syncAudio: () => initAudio(),
+    killAllNotes: () => killAllNotes()
+  }));
+
+  const handleKeyMap = (key) => {
+    const char = key.toUpperCase();
+    const idx = VIRTUAL_MAP.indexOf(char);
+    if (idx === -1) return null;
+    return ALL_88_KEYS[idx + 24]?.note; 
   }
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.repeat) return;
-      if (e.code === 'Space') { 
-        e.preventDefault(); 
-        isSustainingRef.current = true; 
-        return; 
-      }
-      const char = e.key.toUpperCase();
-      const keyObj = KEYS.find(k => k.key === char);
-      if (keyObj) startNote(char, keyObj.freq);
+      if (e.code === 'Space') { e.preventDefault(); isSustainingRef.current = true; return; }
+      if (e.code === 'Escape' && isFullScreen) { onExitFullScreen(); return; }
+      const note = handleKeyMap(e.key);
+      if (note) startNote(note);
     };
-
     const handleKeyUp = (e) => {
       if (e.code === 'Space') {
         isSustainingRef.current = false;
-        Object.keys(oscillatorsRef.current).forEach(k => {
-          if (oscillatorsRef.current[k].released) stopNote(k);
+        Object.keys(oscillatorsRef.current).forEach(id => {
+            if (oscillatorsRef.current[id].releasedByPlayer) stopNote(id.replace('s', '#'), true);
         });
         return;
       }
-      const char = e.key.toUpperCase();
-      if (KEYS.find(k => k.key === char)) stopNote(char);
+      const note = handleKeyMap(e.key);
+      if (note) stopNote(note);
+    };
+    // GLOBAL Safety Release
+    const handleGlobalMouseUp = () => {
+        // Find notes that are NOT sustained by pedal and release them
+        Object.keys(oscillatorsRef.current).forEach(id => {
+            const noteName = id.replace('s', '#');
+            stopNote(noteName);
+        });
     };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => { 
+        window.removeEventListener('keydown', handleKeyDown); 
+        window.removeEventListener('keyup', handleKeyUp);
+        window.removeEventListener('mouseup', handleGlobalMouseUp);
     };
-  }, [volume, reverb]);
-
-  useEffect(() => {
-    if (masterGainRef.current) {
-        masterGainRef.current.gain.setTargetAtTime(volume, audioCtxRef.current.currentTime, 0.1);
-    }
-  }, [volume]);
+  }, [isAudioReady, isFullScreen]);
 
   return (
-    <div className={`w-full flex justify-center items-center transition-all duration-1000 
-      ${isFullScreen ? 'fixed inset-0 z-[100] bg-black p-4 lg:p-12' : 'p-2'}`}>
+    <div onClick={initAudio} className={`group w-full select-none relative
+      ${isFullScreen ? 'fixed inset-0 z-[5000] bg-zinc-950 flex flex-col items-center justify-center p-20' : 'h-[360px]'}`}>
       
-      <div className={`relative flex w-full max-w-[1400px] h-[500px] bg-zinc-950 rounded-[4rem] border border-white/5 overflow-hidden shadow-[0_100px_200px_rgba(0,0,0,0.9)] 
-        ${isFullScreen ? 'h-[750px]' : ''}`}>
-        
-        {isFullScreen && (
-          <button onClick={onExitFullScreen} className="absolute top-8 right-8 p-4 text-white/20 hover:text-white transition-colors z-[101]">
-            <X size={44} />
-          </button>
-        )}
+      {!isAudioReady && (
+        <div className="absolute inset-0 z-[6000] flex flex-col items-center justify-center bg-black/60 backdrop-blur-3xl cursor-pointer">
+           <div className="w-24 h-24 rounded-full bg-gradient-to-br from-pink-500 to-rose-700 flex items-center justify-center animate-bounce shadow-[0_0_80px_rgba(225,29,72,0.4)]">
+              <Speaker className="text-white" size={48} />
+           </div>
+           <h2 className="text-white text-4xl font-black uppercase tracking-[0.2em] mt-10 mb-2 italic">Master Studio Sync</h2>
+           <p className="text-zinc-500 font-bold uppercase tracking-[0.6em] text-[10px]">Initialize High-Fidelity 88-Key Engine</p>
+        </div>
+      )}
 
-        <div className="flex w-full h-full p-6 lg:p-12">
-          {KEYS.map((k, i) => (
+      {/* PIANO HOUSING */}
+      <div className={`w-full h-full relative p-4 pb-12 bg-zinc-950 rounded-[2.5rem] border-t-8 border-x-4 border-zinc-900 shadow-[0_100px_150px_rgba(0,0,0,0.8)] flex flex-col transition-all duration-500
+        ${isFullScreen ? 'scale-110' : 'scale-100'}`}>
+        
+        <div className="h-4 w-full bg-gradient-to-b from-zinc-900 to-zinc-950 mb-1 rounded-t-lg border-b border-zinc-800/20" />
+
+        <div className="flex w-full h-full relative bg-zinc-950 px-1 items-start">
+        {ALL_88_KEYS.map((k, i) => {
+          const id = getNoteID(k.note);
+          const isActive = activeKeys.has(id);
+          const isGold = highlightedKey === k.note;
+          
+          return (
             <div
-              key={`${k.note}-${i}`}
-              onMouseDown={() => startNote(k.key, k.freq)}
-              onMouseUp={() => stopNote(k.key)}
-              onMouseLeave={() => stopNote(k.key)}
+              key={k.note}
+              onMouseDown={(e) => { e.stopPropagation(); startNote(k.note); }}
+              onMouseUp={(e) => { e.stopPropagation(); stopNote(k.note); }}
+              onMouseLeave={(e) => { e.stopPropagation(); stopNote(k.note); }}
               className={`
-                relative flex flex-col justify-end transition-all duration-150 cursor-pointer
+                relative flex flex-col justify-end transition-all duration-100 cursor-pointer 
                 ${k.type === 'white' 
-                  ? 'flex-1 h-full bg-linear-to-b from-zinc-50 to-zinc-200 z-10 border-x border-zinc-300 rounded-b-3xl shadow-[0_20px_40px_rgba(0,0,0,0.5)]' 
-                  : 'w-[3.5%] h-[62%] -mx-[1.75%] bg-linear-to-b from-zinc-700 to-zinc-900 z-20 rounded-b-xl border-x border-zinc-950 shadow-2xl hover:from-zinc-600'}
-                ${activeKeys.has(k.key) ? (k.type === 'white' ? 'translate-y-8 !from-zinc-300 !to-zinc-400' : 'translate-y-8 !from-zinc-500 !to-zinc-700') : ''}
+                    ? 'flex-1 h-full bg-gradient-to-b from-zinc-100 to-white border-x border-zinc-200 z-10 shadow-[2px_10px_20px_rgba(0,0,0,0.05),inset_0_-8px_15px_rgba(0,0,0,0.05)] rounded-b-md' 
+                    : 'w-[0.9%] h-[64%] -mx-[0.45%] bg-gradient-to-b from-zinc-800 to-zinc-950 border-x border-black z-20 rounded-b-lg shadow-2xl ring-1 ring-white/5'}
+                ${isActive ? 'bg-zinc-200 !translate-y-4 !shadow-inner' : ''}
+                ${isGold ? 'z-30' : ''}
               `}
             >
-              <div className={`absolute bottom-16 left-1/2 -translate-x-1/2 text-center pointer-events-none transition-all duration-500 
-                ${activeKeys.has(k.key) ? 'scale-125 opacity-100' : 'scale-100 opacity-60'}`}>
-                <div className={`text-xl font-black tracking-tighter ${k.type === 'white' ? 'text-zinc-900' : 'text-[var(--accent)]'}`}>
-                  {k.sargam}
-                </div>
-                {!isFullScreen && k.type === 'white' && (
-                  <div className="mt-3 text-[9px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-950/5 px-2 py-1 rounded-lg">
-                    {k.key}
-                  </div>
-                )}
-              </div>
+              {isGold && (
+                <div className="absolute inset-0 bg-gradient-to-t from-yellow-500/40 via-yellow-400/20 to-transparent animate-pulse rounded-b-md" />
+              )}
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[5px] font-black text-zinc-300 opacity-10 pointer-events-none uppercase">{k.note}</div>
             </div>
-          ))}
+          )
+        })}
         </div>
       </div>
+
+      {isFullScreen && (
+        <button onClick={onExitFullScreen} className="fixed top-12 right-12 p-5 text-white bg-zinc-800/40 hover:bg-rose-600 rounded-full backdrop-blur-3xl transition-all shadow-2xl border border-white/10 active:scale-95">
+           <X size={32} />
+        </button>
+      )}
     </div>
   )
-}
+})
+
+export default Piano;
