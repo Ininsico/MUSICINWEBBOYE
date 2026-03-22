@@ -108,11 +108,15 @@ export default function Home() {
               <div 
                 className="absolute inset-0 bg-white/20 blur-3xl rounded-full scale-110 opacity-60 group-hover:opacity-80 transition-opacity duration-500" 
               />
-              <img
-                src={logoImg}
-                alt="Mi Amor Hero Logo"
-                className="relative z-10 w-full max-w-[420px] lg:max-w-[500px] h-auto object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.3)] select-none pointer-events-none"
-              />
+              <h2 
+                className="relative z-10 text-[8rem] lg:text-[12rem] font-black text-white leading-none tracking-tighter italic lg:-rotate-6"
+                style={{ 
+                  fontFamily: 'var(--font-serif)',
+                  textShadow: '0 20px 80px rgba(0,0,0,0.4)'
+                }}
+              >
+                MI <span className="block lg:inline">Amor</span>
+              </h2>
             </div>
           </div>
         </div>
