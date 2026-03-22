@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* ─── Design Tokens ──────────────────────────────────────────────────────── */
 :root {
   --cream:       #fdf6f0;
   --cream-dark:  #f5e9df;
@@ -16,18 +15,20 @@
   --font-sans:   'Plus Jakarta Sans', system-ui, sans-serif;
 
   font-family: var(--font-sans);
+  font-weight: 600;
+  font-style: normal;
   color: var(--text);
   background: var(--cream);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── Reset ──────────────────────────────────────────────────────────────── */
+em, i { font-style: normal; font-weight: inherit; }
+
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; }
 #root { min-height: 100svh; display: flex; flex-direction: column; }
 
-/* ─── Keyframe Animations ────────────────────────────────────────────────── */
 @keyframes float {
   0%, 100% { transform: translateY(0px) rotate(0deg); }
   33%       { transform: translateY(-18px) rotate(2deg); }
@@ -62,7 +63,7 @@ body { margin: 0; }
   100% { opacity: 0; transform: translateY(-120px) scale(1.1); }
 }
 
-/* ─── Utility Classes ────────────────────────────────────────────────────── */
+.z-1 { z-index: 1; }
 .animate-fade-up   { animation: fadeUp 0.8s ease both; }
 .delay-100         { animation-delay: 0.1s; }
 .delay-200         { animation-delay: 0.2s; }
