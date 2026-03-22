@@ -1,0 +1,5 @@
+/* App.css — component-level animation overrides that can't easily live in index.css */
+
+a {
+  text-decoration: none;
+}
