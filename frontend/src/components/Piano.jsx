@@ -21,7 +21,18 @@ const generateKeys = () => {
 }
 
 const ALL_88_KEYS = generateKeys()
-const VIRTUAL_MAP = "1234567890QWERTYUIOPASDFGHJKLZXCVBNM".split("");
+
+// SURGICAL 88-KEY MAPPING SYSTEM
+const KEY_MAP = {
+  // EXTREME LEFT (BASS: A0-B2)
+  'Q': 'A0', 'W': 'B0', 'E': 'C1', 'R': 'D1', 'T': 'E1', 'Y': 'F1', 'U': 'G1', 'I': 'A1', 'O': 'B1', 'P': 'C2', '[': 'D2', ']': 'E2',
+  // MIDDLE (MID: C3-B5)
+  'A': 'C3', 'S': 'D3', 'D': 'E3', 'F': 'F3', 'G': 'G3', 'H': 'A3', 'J': 'B3', 'K': 'C4', 'L': 'D4', ';': 'E4', "'": 'F4',
+  // EXTREME RIGHT (TREBLE: C6-C8)
+  'Z': 'C6', 'X': 'D6', 'C': 'E6', 'V': 'F6', 'B': 'G6', 'N': 'A6', 'M': 'B6', ',': 'C7', '.': 'D7', '/': 'E7',
+  // BLACK KEYS (NUMBERS 1-0)
+  '1': 'A#0', '2': 'C#1', '3': 'D#1', '4': 'F#1', '5': 'G#1', '6': 'A#1', '7': 'C#2', '8': 'D#2', '9': 'F#2', '0': 'G#2'
+}
 
 const Piano = forwardRef(({ 
     volume = 1.0, 
@@ -58,7 +69,7 @@ const Piano = forwardRef(({
 
   const getNoteID = (noteName) => noteName.replace('#', 's');
 
-  const startNote = (noteName, volumeOverride = 0.3) => {
+  const startNote = (noteName, volumeOverride = 0.35) => {
     if (!isAudioReady) return;
     const keyObj = ALL_88_KEYS.find(k => k.note === noteName);
     if (!keyObj) return;
@@ -66,7 +77,6 @@ const Piano = forwardRef(({
     const now = audioCtxRef.current.currentTime
     
     if (oscillatorsRef.current[id]) {
-        oscillatorsRef.current[id].gain.gain.cancelScheduledValues(now);
         oscillatorsRef.current[id].oscs.forEach(o => { try { o.stop(); o.disconnect(); } catch(e) {} });
         delete oscillatorsRef.current[id];
     }
@@ -82,10 +92,10 @@ const Piano = forwardRef(({
     sub.frequency.setValueAtTime(keyObj.freq / 2, now)
 
     filter.type = 'lowpass'
-    filter.frequency.setValueAtTime(400, now)
+    filter.frequency.setValueAtTime(450, now)
 
     gainNode.gain.setValueAtTime(0, now)
-    gainNode.gain.linearRampToValueAtTime(volumeOverride, now + 0.05) 
+    gainNode.gain.linearRampToValueAtTime(volumeOverride, now + 0.04) 
 
     osc.connect(filter)
     sub.connect(filter)
@@ -94,29 +104,23 @@ const Piano = forwardRef(({
     osc.start(now)
     sub.start(now)
 
-    oscillatorsRef.current[id] = { oscs: [osc, sub], gain: gainNode, releasedByPlayer: false, startTime: now }
+    oscillatorsRef.current[id] = { oscs: [osc, sub], gain: gainNode, releasedByPlayer: false }
     setActiveKeys(prev => new Set([...prev, id]))
   }
 
   const stopNote = (noteName, immediate = false) => {
     const id = getNoteID(noteName);
     const note = oscillatorsRef.current[id]
-    if (!note) return
     
-    // VISUAL POPUP - Always immediate
     setActiveKeys(prev => {
-      const next = new Set(prev); 
-      next.delete(id); 
-      return next;
+      const next = new Set(prev); next.delete(id); return next;
     });
 
-    if (isSustainingRef.current && !immediate) { 
-        note.releasedByPlayer = true; 
-        return; 
-    }
+    if (!note) return
+    if (isSustainingRef.current && !immediate) { note.releasedByPlayer = true; return; }
 
     const now = audioCtxRef.current.currentTime
-    const releaseTime = immediate ? 0.03 : 0.6
+    const releaseTime = immediate ? 0.02 : 0.5
     note.gain.gain.cancelScheduledValues(now)
     note.gain.gain.setTargetAtTime(0, now, releaseTime / 5)
     
@@ -129,10 +133,9 @@ const Piano = forwardRef(({
   }
 
   const killAllNotes = () => {
-    const now = audioCtxRef.current.currentTime;
+    const now = audioCtxRef.current?.currentTime || 0;
     Object.keys(oscillatorsRef.current).forEach(id => {
         const note = oscillatorsRef.current[id];
-        note?.gain.gain.cancelScheduledValues(now);
         note?.oscs.forEach(o => { try { o.stop(); o.disconnect(); } catch(e) {} });
         delete oscillatorsRef.current[id];
     });
@@ -168,12 +171,7 @@ const Piano = forwardRef(({
     killAllNotes: () => killAllNotes()
   }));
 
-  const handleKeyMap = (key) => {
-    const char = key.toUpperCase();
-    const idx = VIRTUAL_MAP.indexOf(char);
-    if (idx === -1) return null;
-    return ALL_88_KEYS[idx + 24]?.note; 
-  }
+  const handleKeyMap = (key) => KEY_MAP[key.toUpperCase()];
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -194,22 +192,19 @@ const Piano = forwardRef(({
       const note = handleKeyMap(e.key);
       if (note) stopNote(note);
     };
-    // GLOBAL Safety Release
     const handleGlobalMouseUp = () => {
-        // Find notes that are NOT sustained by pedal and release them
-        Object.keys(oscillatorsRef.current).forEach(id => {
-            const noteName = id.replace('s', '#');
-            stopNote(noteName);
-        });
+        Object.keys(oscillatorsRef.current).forEach(id => stopNote(id.replace('s', '#')));
     };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('mouseup', handleGlobalMouseUp);
+    window.addEventListener('blur', killAllNotes);
     return () => { 
         window.removeEventListener('keydown', handleKeyDown); 
         window.removeEventListener('keyup', handleKeyUp);
         window.removeEventListener('mouseup', handleGlobalMouseUp);
+        window.removeEventListener('blur', killAllNotes);
     };
   }, [isAudioReady, isFullScreen]);
 
@@ -218,17 +213,16 @@ const Piano = forwardRef(({
       ${isFullScreen ? 'fixed inset-0 z-[5000] bg-zinc-950 flex flex-col items-center justify-center p-20' : 'h-[360px]'}`}>
       
       {!isAudioReady && (
-        <div className="absolute inset-0 z-[6000] flex flex-col items-center justify-center bg-black/60 backdrop-blur-3xl cursor-pointer">
+        <div className="absolute inset-0 z-[6000] flex flex-col items-center justify-center bg-black/80 backdrop-blur-3xl cursor-pointer">
            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-pink-500 to-rose-700 flex items-center justify-center animate-bounce shadow-[0_0_80px_rgba(225,29,72,0.4)]">
               <Speaker className="text-white" size={48} />
            </div>
            <h2 className="text-white text-4xl font-black uppercase tracking-[0.2em] mt-10 mb-2 italic">Master Studio Sync</h2>
-           <p className="text-zinc-500 font-bold uppercase tracking-[0.6em] text-[10px]">Initialize High-Fidelity 88-Key Engine</p>
         </div>
       )}
 
       {/* PIANO HOUSING */}
-      <div className={`w-full h-full relative p-4 pb-12 bg-zinc-950 rounded-[2.5rem] border-t-8 border-x-4 border-zinc-900 shadow-[0_100px_150px_rgba(0,0,0,0.8)] flex flex-col transition-all duration-500
+      <div className={`w-full h-full relative p-4 pb-12 bg-zinc-950 rounded-[2.5rem] border-t-8 border-x-4 border-zinc-900 shadow-[0_100px_150px_rgba(0,0,0,0.8)] flex flex-col
         ${isFullScreen ? 'scale-110' : 'scale-100'}`}>
         
         <div className="h-4 w-full bg-gradient-to-b from-zinc-900 to-zinc-950 mb-1 rounded-t-lg border-b border-zinc-800/20" />
@@ -246,29 +240,20 @@ const Piano = forwardRef(({
               onMouseUp={(e) => { e.stopPropagation(); stopNote(k.note); }}
               onMouseLeave={(e) => { e.stopPropagation(); stopNote(k.note); }}
               className={`
-                relative flex flex-col justify-end transition-all duration-100 cursor-pointer 
+                relative flex flex-col justify-end transition-none cursor-pointer 
                 ${k.type === 'white' 
                     ? 'flex-1 h-full bg-gradient-to-b from-zinc-100 to-white border-x border-zinc-200 z-10 shadow-[2px_10px_20px_rgba(0,0,0,0.05),inset_0_-8px_15px_rgba(0,0,0,0.05)] rounded-b-md' 
                     : 'w-[0.9%] h-[64%] -mx-[0.45%] bg-gradient-to-b from-zinc-800 to-zinc-950 border-x border-black z-20 rounded-b-lg shadow-2xl ring-1 ring-white/5'}
-                ${isActive ? 'bg-zinc-200 !translate-y-4 !shadow-inner' : ''}
+                ${isActive ? '!bg-zinc-300 !translate-y-4 !shadow-inner' : ''}
                 ${isGold ? 'z-30' : ''}
               `}
             >
-              {isGold && (
-                <div className="absolute inset-0 bg-gradient-to-t from-yellow-500/40 via-yellow-400/20 to-transparent animate-pulse rounded-b-md" />
-              )}
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[5px] font-black text-zinc-300 opacity-10 pointer-events-none uppercase">{k.note}</div>
+              {isGold && <div className="absolute inset-0 bg-yellow-400/30 animate-pulse rounded-b-md" />}
             </div>
           )
         })}
         </div>
       </div>
-
-      {isFullScreen && (
-        <button onClick={onExitFullScreen} className="fixed top-12 right-12 p-5 text-white bg-zinc-800/40 hover:bg-rose-600 rounded-full backdrop-blur-3xl transition-all shadow-2xl border border-white/10 active:scale-95">
-           <X size={32} />
-        </button>
-      )}
     </div>
   )
 })
